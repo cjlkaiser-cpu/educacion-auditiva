@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educacion Auditiva - Armonia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .unit-btn.active { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); border-color: #3b82f6; }
+
+        .audio-card { transition: all 0.3s ease; }
+        .audio-card:hover { border-color: #3b82f6; }
+        .audio-card.playing { border-color: #22c55e; background: rgba(34, 197, 94, 0.05); }
+
+        .answer-box { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.3s ease; }
+        .answer-box.revealed { max-height: 500px; padding: 1rem; }
+
+        .theory-content { max-height: 0; overflow: hidden; transition: max-height 0.5s ease; }
+        .theory-content.expanded { max-height: 5000px; }
+
+        .theory-section h3 { font-size: 1.1rem; font-weight: 600; color: #e2e8f0; margin: 1.5rem 0 0.75rem; }
+        .theory-section h3:first-child { margin-top: 0; }
+        .theory-section p { color: #94a3b8; line-height: 1.7; margin-bottom: 0.75rem; }
+        .theory-section ul { list-style: disc; padding-left: 1.5rem; color: #94a3b8; margin-bottom: 1rem; }
+        .theory-section li { margin-bottom: 0.5rem; line-height: 1.6; }
+        .theory-section strong { color: #f1f5f9; }
+        .theory-section .note { background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; padding: 0.75rem 1rem; margin: 1rem 0; border-radius: 0 0.5rem 0.5rem 0; }
+        .theory-section img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; border: 1px solid #334155; }
+
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+        }
+        .playing-indicator { animation: pulse-green 2s infinite; }
+
+        /* MOBILE RESPONSIVE */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -100%;
+                top: 0;
+                height: 100%;
+                z-index: 50;
+                transition: left 0.3s ease;
+                width: 85% !important;
+                max-width: 320px;
+            }
+            .sidebar.open { left: 0; }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 40;
+            }
+            .sidebar-overlay.open { display: block; }
+            .mobile-header { display: flex !important; }
+            .main-content { margin-left: 0 !important; }
+            .exercises-grid { grid-template-columns: 1fr !important; }
+            .theory-section img { margin: 0.5rem 0; }
+            .theory-section h3 { font-size: 1rem; }
+            .theory-section p, .theory-section li { font-size: 0.9rem; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 h-screen flex overflow-hidden">
+
+    <!-- OVERLAY MOBILE -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar w-72 bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col">
+        <div class="p-5 border-b border-slate-800">
+            <h1 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                <i class="fa-solid fa-headphones text-blue-500"></i>
+                Educacion <span class="text-slate-500">Auditiva</span>
+            </h1>
+            <p class="text-xs text-slate-500 mt-1">Curso de Armonia - bustena.com</p>
+        </div>
+
+        <div class="px-5 py-4 border-b border-slate-800 bg-slate-900/50">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-medium text-slate-400">Progreso general</span>
+                <span id="progress-text" class="text-xs font-bold text-blue-400">0%</span>
+            </div>
+            <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div id="progress-bar" class="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-3">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 px-2">Unidades</p>
+            <div id="units-nav" class="space-y-1"></div>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800 bg-slate-900/50">
+            <button onclick="toggleRandomMode()" id="random-btn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-400 text-sm transition flex items-center gap-2">
+                <i class="fa-solid fa-shuffle"></i> Modo aleatorio
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content flex-1 flex flex-col min-w-0 bg-slate-950">
+
+        <!-- MOBILE HEADER -->
+        <div class="mobile-header hidden bg-slate-900 border-b border-slate-800 px-4 py-3 items-center justify-between md:hidden">
+            <button onclick="toggleSidebar()" class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center">
+                <i class="fa-solid fa-bars text-slate-300"></i>
+            </button>
+            <h1 class="text-lg font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-headphones text-blue-500"></i>
+                Armonia
+            </h1>
+            <div class="w-10"></div>
+        </div>
+
+        <header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-4 md:px-6 py-3 md:py-4 flex justify-between items-center">
+            <div class="min-w-0 flex-1">
+                <h2 id="current-unit-title" class="text-base md:text-lg font-semibold text-white truncate">Selecciona una unidad</h2>
+                <p id="current-unit-desc" class="text-xs md:text-sm text-slate-500 mt-0.5 truncate">Elige una unidad del menu lateral</p>
+            </div>
+            <div class="flex gap-3 items-center">
+                <span id="unit-progress" class="text-xs font-mono text-slate-500 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+                    <i class="fa-solid fa-music mr-1"></i> <span id="unit-done">0</span>/<span id="unit-total">0</span>
+                </span>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-6">
+            <div id="empty-state" class="flex flex-col items-center justify-center h-full text-center">
+                <div class="w-20 h-20 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-4">
+                    <i class="fa-solid fa-ear-listen text-3xl text-slate-600"></i>
+                </div>
+                <h3 class="text-xl font-semibold text-slate-400 mb-2">Entrena tu oido armonico</h3>
+                <p class="text-slate-600 max-w-md">Selecciona una unidad del menu lateral para estudiar teoria y practicar reconocimiento auditivo.</p>
+            </div>
+
+            <div id="content-container" class="hidden max-w-5xl mx-auto">
+
+                <!-- TEORIA ACORDEON -->
+                <div class="mb-6">
+                    <button onclick="toggleTheory()" id="theory-toggle" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between hover:border-slate-700 transition group">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <i class="fa-solid fa-book text-amber-400"></i>
+                            </div>
+                            <div class="text-left">
+                                <p class="font-semibold text-white">Teoria</p>
+                                <p class="text-xs text-slate-500">Conceptos y diagramas de la unidad</p>
+                            </div>
+                        </div>
+                        <i id="theory-chevron" class="fa-solid fa-chevron-down text-slate-500 transition-transform"></i>
+                    </button>
+
+                    <div id="theory-content" class="theory-content bg-slate-900/50 border border-t-0 border-slate-800 rounded-b-xl">
+                        <div id="theory-body" class="theory-section p-6"></div>
+                    </div>
+                </div>
+
+                <!-- EJERCICIOS -->
+                <div class="mb-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <i class="fa-solid fa-headphones text-blue-400"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-white">Ejercicios auditivos</p>
+                        <p class="text-xs text-slate-500">Escucha y adivina la progresion</p>
+                    </div>
+                </div>
+
+                <div id="exercises-grid" class="exercises-grid grid gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ============================================
+        // DATA
+        // ============================================
+        const UNITS = [
+            {
+                id: 1,
+                title: "Morfologia de los acordes de triada",
+                shortTitle: "Triadas",
+                description: "Especies: Mayor, menor, disminuido, aumentado",
+                images: ["unidad01_01_u1_especies_acordes.png", "unidad01_02_u1_componentes_triada.png", "unidad01_03_u1_disposicion.png", "unidad01_04_u1_enlace_acordes.png", "unidad01_05_u1_distancias.png"],
+                theory: `
+                    <h3>Especies de los acordes de triada</h3>
+                    <p>Los acordes de triada se obtienen superponiendo dos terceras a partir de un <strong>sonido fundamental</strong>. Segun estos intervalos sean mayores o menores, clasificamos las triadas en cuatro especies:</p>
+                    <ul>
+                        <li><strong>Acorde mayor:</strong> 3a mayor + 3a menor. La 5a resultante es justa.</li>
+                        <li><strong>Acorde menor:</strong> 3a menor + 3a mayor. La 5a resultante es justa.</li>
+                        <li><strong>Acorde disminuido:</strong> 3a menor + 3a menor. La 5a resultante es disminuida.</li>
+                        <li><strong>Acorde aumentado:</strong> 3a mayor + 3a mayor. La 5a resultante es aumentada.</li>
+                    </ul>
+                    <img src="imagenes/unidad01_01_u1_especies_acordes.png" alt="Especies de acordes">
+
+                    <h3>Componentes del acorde</h3>
+                    <p>Los sonidos se denominan <strong>fundamental</strong>, <strong>tercera</strong> y <strong>quinta</strong>, contados de abajo a arriba. Estas denominaciones se conservan aunque esten dispuestos en otro orden.</p>
+                    <img src="imagenes/unidad01_02_u1_componentes_triada.png" alt="Componentes de la triada">
+
+                    <h3>Disposicion en el piano</h3>
+                    <p>La mano derecha toca el acorde completo en <strong>posicion cerrada</strong> (dentro de una octava), mientras la mano izquierda toca solo la fundamental.</p>
+                    <img src="imagenes/unidad01_03_u1_disposicion.png" alt="Disposicion">
+                    <p>Un acorde esta en <strong>posicion de octava</strong> cuando la fundamental ocupa la posicion superior. En <strong>posicion de tercera</strong> cuando la tercera esta arriba. En <strong>posicion de quinta</strong> cuando la quinta esta arriba.</p>
+
+                    <h3>Enlace de acordes</h3>
+                    <p>Al enlazar acordes, las notas de la mano derecha deben moverse lo menos posible:</p>
+                    <ul>
+                        <li><strong>Nota comun:</strong> Si hay una nota comun, se mantiene en la misma voz.</li>
+                        <li><strong>Doble nota comun:</strong> Si hay dos notas comunes, ambas se mantienen.</li>
+                        <li><strong>Movimiento contrario:</strong> Sin notas comunes, la mano derecha se mueve en direccion opuesta al bajo.</li>
+                    </ul>
+                    <img src="imagenes/unidad01_04_u1_enlace_acordes.png" alt="Enlace de acordes">
+                    <div class="note">El <strong>movimiento paralelo</strong> esta prohibido en armonia clasica pero es comun en musica moderna.</div>
+
+                    <h3>Regla de distancias</h3>
+                    <ul>
+                        <li>Fundamentales a distancia de 5a o 4a: <strong>una nota comun</strong></li>
+                        <li>Fundamentales a distancia de 3a o 6a: <strong>dos notas comunes</strong></li>
+                        <li>Fundamentales a distancia de 2a: <strong>sin notas comunes</strong></li>
+                    </ul>
+                    <img src="imagenes/unidad01_05_u1_distancias.png" alt="Distancias">
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista34.mp3", hint: "Progresion de dos acordes", answer: "V - I", song: "ABBA - I Have a Dream" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista30.mp3", hint: "Progresion de dos acordes", answer: "I - III", song: "Alan Parsons - Eye in the Sky" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista05.mp3", hint: "Progresion de dos acordes", answer: "I - II", song: "Alton Ellis - La La La" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista02.mp3", hint: "Progresion de dos acordes", answer: "I - VI", song: "Kylie Minogue - Locomotion" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista22.mp3", hint: "Progresion de dos acordes", answer: "I - IV", song: "Willie Nelson - On the Road Again" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista33.mp3", hint: "Progresion de dos acordes", answer: "I - bVII", song: "Modo mixolidio" }
+                ]
+            },
+            {
+                id: 2,
+                title: "Funciones tonales diatonicas",
+                shortTitle: "Funciones tonales",
+                description: "Tonica, Subdominante, Dominante",
+                images: ["unidad02_01_u3_funciones_mayor.png", "unidad02_02_u3_funciones_menor.png"],
+                theory: `
+                    <h3>Las tres funciones tonales</h3>
+                    <p>En la musica tonal, los acordes cumplen tres <strong>funciones armonicas</strong> fundamentales:</p>
+                    <ul>
+                        <li><strong>Tonica (T):</strong> Funcion de reposo y estabilidad. Grado I.</li>
+                        <li><strong>Subdominante (S):</strong> Funcion de transicion o preparacion. Grado IV.</li>
+                        <li><strong>Dominante (D):</strong> Funcion de tension que busca resolver a tonica. Grado V.</li>
+                    </ul>
+
+                    <h3>Funciones en modo mayor</h3>
+                    <img src="imagenes/unidad02_01_u3_funciones_mayor.png" alt="Funciones en mayor">
+                    <p>Los grados sustitutos comparten dos notas con la funcion principal:</p>
+                    <ul>
+                        <li><strong>Tonica:</strong> I, III, VI</li>
+                        <li><strong>Subdominante:</strong> IV, II</li>
+                        <li><strong>Dominante:</strong> V, VII</li>
+                    </ul>
+
+                    <h3>Funciones en modo menor</h3>
+                    <img src="imagenes/unidad02_02_u3_funciones_menor.png" alt="Funciones en menor">
+                    <p>En modo menor natural, el VII grado esta a un tono de la tonica, por lo que se utiliza la <strong>sensible</strong> (7 elevado) para crear la funcion dominante.</p>
+
+                    <div class="note">La progresion <strong>T - S - D - T</strong> es el esquema armonico mas basico y frecuente en la musica tonal.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista34.mp3", hint: "Identifica la funcion", answer: "T - S - D - T", song: "Progresion I-IV-V-I" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista13.mp3", hint: "Cadencia", answer: "D - T (Autentica)", song: "Cadencia autentica" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista35.mp3", hint: "Funcion de sustituto", answer: "I - VI - IV - V", song: "Progresion pop" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista51.mp3", hint: "Identifica funciones", answer: "T - Tp - S - D", song: "I - III - IV - V" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista01.mp3", hint: "Funciones basicas", answer: "I - II - V - I", song: "II-V-I jazz" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista05.mp3", hint: "Cadencia plagal", answer: "IV - I", song: "Cadencia Amen" }
+                ]
+            },
+            {
+                id: 3,
+                title: "Enlace de acordes en estado fundamental",
+                shortTitle: "Enlaces",
+                description: "Nota comun, movimiento contrario",
+                images: ["unidad03_01_u3_disposicion.png", "unidad03_02_u3_movimientos_prohibidos.png", "unidad03_03_u3_enlace_nota_comun.png", "unidad03_04_u3_doble_nota_comun.png", "unidad03_05_u3_movimiento_contraria.png"],
+                theory: `
+                    <h3>Tipos de enlace</h3>
+                    <p>El objetivo principal es que las voces superiores se muevan lo <strong>menos posible</strong>.</p>
+
+                    <h3>Enlace por nota comun</h3>
+                    <p>Cuando dos acordes comparten una nota, esta permanece en la misma voz:</p>
+                    <img src="imagenes/unidad03_03_u3_enlace_nota_comun.png" alt="Nota comun">
+
+                    <h3>Enlace por doble nota comun</h3>
+                    <p>Cuando comparten dos notas (acordes a distancia de 3a):</p>
+                    <img src="imagenes/unidad03_04_u3_doble_nota_comun.png" alt="Doble nota comun">
+
+                    <h3>Movimiento contrario</h3>
+                    <p>Sin notas comunes, las voces superiores se mueven en direccion opuesta al bajo:</p>
+                    <img src="imagenes/unidad03_05_u3_movimiento_contraria.png" alt="Movimiento contrario">
+
+                    <h3>Movimientos prohibidos</h3>
+                    <img src="imagenes/unidad03_02_u3_movimientos_prohibidos.png" alt="Movimientos prohibidos">
+                    <div class="note">Las <strong>quintas y octavas paralelas</strong> estan prohibidas en la armonia clasica porque eliminan la independencia de las voces.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista14.mp3", hint: "Tipo de enlace", answer: "Nota comun (I-V)", song: "5a descendente" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista06.mp3", hint: "Tipo de enlace", answer: "Nota comun (I-IV)", song: "4a ascendente" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista24.mp3", hint: "Tipo de enlace", answer: "Doble nota comun (I-VI)", song: "3a descendente" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista31.mp3", hint: "Tipo de enlace", answer: "Doble nota comun (I-III)", song: "3a ascendente" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista21.mp3", hint: "Tipo de enlace", answer: "Mov. contrario (V-VI)", song: "2a ascendente" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista17.mp3", hint: "Tipo de enlace", answer: "Mov. contrario (I-II)", song: "2a ascendente" }
+                ]
+            },
+            {
+                id: 4,
+                title: "Reglas de conduccion de voces",
+                shortTitle: "Conduccion",
+                description: "Movimientos armonicos, prohibiciones",
+                images: ["unidad04_01_rango_vocal_tesituras_coro.png", "unidad04_02_u4_saltos.png", "unidad04_04_u4_movimientos_armonicos.png", "unidad04_05_u4_superposicion.png", "unidad04_06_u4_resolucion_sensible.png"],
+                theory: `
+                    <h3>Tesituras vocales</h3>
+                    <img src="imagenes/unidad04_01_rango_vocal_tesituras_coro.png" alt="Tesituras">
+                    <p>Cada voz tiene un rango especifico que debe respetarse.</p>
+
+                    <h3>Movimientos armonicos</h3>
+                    <img src="imagenes/unidad04_04_u4_movimientos_armonicos.png" alt="Movimientos">
+                    <ul>
+                        <li><strong>Paralelo:</strong> Misma direccion, mismo intervalo</li>
+                        <li><strong>Directo:</strong> Misma direccion, diferente intervalo</li>
+                        <li><strong>Contrario:</strong> Direcciones opuestas</li>
+                        <li><strong>Oblicuo:</strong> Una voz quieta, otra se mueve</li>
+                    </ul>
+
+                    <h3>Saltos melodicos</h3>
+                    <img src="imagenes/unidad04_02_u4_saltos.png" alt="Saltos">
+                    <p>Los saltos mayores a una 5a deben compensarse con movimiento en direccion contraria.</p>
+
+                    <h3>Resolucion de la sensible</h3>
+                    <img src="imagenes/unidad04_06_u4_resolucion_sensible.png" alt="Resolucion sensible">
+                    <div class="note">La <strong>sensible</strong> (VII grado) debe resolver subiendo a la tonica, especialmente cuando esta en la voz superior.</div>
+
+                    <h3>Superposicion de voces</h3>
+                    <img src="imagenes/unidad04_05_u4_superposicion.png" alt="Superposicion">
+                    <p>Evitar que una voz cruce por encima o por debajo de otra.</p>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista03.mp3", hint: "Correcto o incorrecto?", answer: "5as paralelas (prohibido)", song: "Error de conduccion" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista12.mp3", hint: "Correcto o incorrecto?", answer: "8as paralelas (prohibido)", song: "Error de conduccion" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista02.mp3", hint: "Movimiento de voces", answer: "Mov. contrario (correcto)", song: "Buena conduccion" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista20.mp3", hint: "Resolucion de sensible", answer: "Sensible sube a tonica", song: "VII a I" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista04.mp3", hint: "Tipo de movimiento", answer: "Movimiento oblicuo", song: "Una voz quieta" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista43.mp3", hint: "Salto melodico", answer: "Salto de 6a (permitido)", song: "Melodia expresiva" }
+                ]
+            },
+            {
+                id: 5,
+                title: "Cifrado barroco",
+                shortTitle: "Bajo cifrado",
+                description: "Cifrado de bajo continuo",
+                images: ["unidad05_01_u5_cifrado_barroco.png", "unidad05_02_u5_enlaces_basicos.png", "unidad05_03_u5_otros_enlaces.png", "unidad05_04_u6_enlaces_problematicos.png"],
+                theory: `
+                    <h3>El bajo cifrado</h3>
+                    <p>Sistema de notacion del periodo barroco donde los acordes se indican con numeros sobre el bajo.</p>
+                    <img src="imagenes/unidad05_01_u5_cifrado_barroco.png" alt="Cifrado barroco">
+
+                    <h3>Cifras principales</h3>
+                    <ul>
+                        <li><strong>5/3 o sin cifra:</strong> Estado fundamental (triada)</li>
+                        <li><strong>6 o 6/3:</strong> Primera inversion (acorde de sexta)</li>
+                        <li><strong>6/4:</strong> Segunda inversion (cuarta y sexta)</li>
+                        <li><strong>7:</strong> Acorde de septima</li>
+                    </ul>
+
+                    <h3>Enlaces basicos</h3>
+                    <img src="imagenes/unidad05_02_u5_enlaces_basicos.png" alt="Enlaces basicos">
+
+                    <h3>Otros enlaces</h3>
+                    <img src="imagenes/unidad05_03_u5_otros_enlaces.png" alt="Otros enlaces">
+
+                    <h3>Enlaces problematicos</h3>
+                    <img src="imagenes/unidad05_04_u6_enlaces_problematicos.png" alt="Enlaces problematicos">
+                    <div class="note">El bajo cifrado permite al interprete <strong>improvisar</strong> la realizacion de los acordes mientras respeta la armonia escrita.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad03/pista07.mp3", hint: "Lee el cifrado", answer: "5/3 (Fundamental)", song: "Triada basica" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad03/pista08.mp3", hint: "Lee el cifrado", answer: "6 (1a inversion)", song: "Acorde de sexta" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad03/pista46.mp3", hint: "Lee el cifrado", answer: "6/4 (2a inversion)", song: "Cuarta y sexta" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad03/pista18.mp3", hint: "Progresion cifrada", answer: "5 - 6 - 5 - 6", song: "Alternancia" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad03/pista59.mp3", hint: "Bajo continuo", answer: "I - V6 - I", song: "Con inversion" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad03/pista20.mp3", hint: "Cifrado", answer: "7 (Septima)", song: "Acorde de septima" }
+                ]
+            },
+            {
+                id: 6,
+                title: "Cadencias",
+                shortTitle: "Cadencias",
+                description: "Tipos de cadencias, acorde 6/4 cadencial",
+                images: ["unidad06_01_acordes_cuarta_cadenciales.png", "unidad06_02_u6_acordes_cuarta.png", "unidad06_03_u6_acordes_sexta_cuarta.png"],
+                theory: `
+                    <h3>Tipos de cadencias</h3>
+                    <p>Las cadencias son formulas armonicas que marcan puntos de reposo o conclusion:</p>
+                    <ul>
+                        <li><strong>Autentica perfecta:</strong> V - I, ambos en fundamental, tonica en soprano</li>
+                        <li><strong>Autentica imperfecta:</strong> V - I, con inversion o 3a/5a en soprano</li>
+                        <li><strong>Semicadencia:</strong> Reposo en V (cualquier acorde a V)</li>
+                        <li><strong>Plagal:</strong> IV - I (cadencia "Amen")</li>
+                        <li><strong>Rota:</strong> V - VI (engano, resolucion inesperada)</li>
+                    </ul>
+
+                    <h3>El acorde de 6/4 cadencial</h3>
+                    <img src="imagenes/unidad06_01_acordes_cuarta_cadenciales.png" alt="Cadencial">
+                    <p>El I 6/4 sobre el V grado funciona como <strong>apoyatura</strong> de la dominante.</p>
+                    <img src="imagenes/unidad06_02_u6_acordes_cuarta.png" alt="Acordes de cuarta">
+
+                    <h3>Usos del 6/4</h3>
+                    <img src="imagenes/unidad06_03_u6_acordes_sexta_cuarta.png" alt="Sexta cuarta">
+                    <div class="note">El acorde de <strong>cuarta y sexta</strong> es inestable por la cuarta sobre el bajo. Solo se usa en contextos especificos: cadencial, de paso, bordadura.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad03/pista47.mp3", hint: "Tipo de cadencia", answer: "Autentica perfecta", song: "V - I" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad10/pista01.mp3", hint: "Tipo de cadencia", answer: "Autentica imperfecta", song: "V - I con inversion" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad06/pista03.mp3", hint: "Tipo de cadencia", answer: "Semicadencia", song: "Reposo en V" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad04/pista07.mp3", hint: "Tipo de cadencia", answer: "Cadencia rota", song: "V - VI (engano)" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad05/pista19.mp3", hint: "Acorde especial", answer: "I 6/4 cadencial", song: "Cuarta y sexta sobre V" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad04/pista05.mp3", hint: "Tipo de cadencia", answer: "Cadencia plagal", song: "IV - I (Amen)" }
+                ]
+            },
+            {
+                id: 7,
+                title: "Acordes de sexta (1a inversion)",
+                shortTitle: "Inversiones",
+                description: "Primera inversion, acorde de sexta",
+                images: ["unidad07_01_acorde_primera_inversion.png", "unidad07_02_u7_disposicion_acorde_sexta.png", "unidad07_03_u7_enlaces_sexta.png", "unidad07_04_u7_enlaces_sextas_b.png", "unidad07_05_u7_acordes_vii_7.png", "unidad07_07_u7_vii_enlaces_tritono.png"],
+                theory: `
+                    <h3>Primera inversion</h3>
+                    <img src="imagenes/unidad07_01_acorde_primera_inversion.png" alt="Primera inversion">
+                    <p>El acorde de <strong>sexta</strong> tiene la tercera del acorde en el bajo.</p>
+
+                    <h3>Disposicion</h3>
+                    <img src="imagenes/unidad07_02_u7_disposicion_acorde_sexta.png" alt="Disposicion">
+                    <p>Generalmente se duplica la <strong>fundamental</strong> o la <strong>quinta</strong>, evitando duplicar la tercera.</p>
+
+                    <h3>Enlaces de sextas</h3>
+                    <img src="imagenes/unidad07_03_u7_enlaces_sexta.png" alt="Enlaces sexta">
+                    <img src="imagenes/unidad07_04_u7_enlaces_sextas_b.png" alt="Enlaces sexta B">
+
+                    <h3>El VII grado en primera inversion</h3>
+                    <img src="imagenes/unidad07_05_u7_acordes_vii_7.png" alt="VII grado">
+                    <p>El <strong>VII6</strong> es muy util como sustituto de V, suavizando el tritono.</p>
+                    <img src="imagenes/unidad07_07_u7_vii_enlaces_tritono.png" alt="Tritono">
+                    <div class="note">El VII grado en estado fundamental tiene el tritono muy expuesto. En primera inversion (VII6) el tritono queda "escondido".</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad07/pista06.mp3", hint: "Estado del acorde", answer: "1a inversion (6)", song: "Tercera en bajo" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad07/pista02.mp3", hint: "Enlace de sextas", answer: "I - I6 - IV", song: "Bajo melodico" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad07/pista13.mp3", hint: "Funcion del VI6", answer: "VI6 - V - I", song: "Sustituto de IV" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad07/pista10.mp3", hint: "Acorde de paso", answer: "I - V6 - VI", song: "V6 como paso" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad12/pista14.mp3", hint: "VII en inversion", answer: "VII6 - I", song: "Sensible en 1a inv." },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad08/pista05.mp3", hint: "Serie de sextas", answer: "I - II6 - III6 - IV", song: "Fauxbourdon" }
+                ]
+            },
+            {
+                id: 9,
+                title: "Progresiones y secuencias",
+                shortTitle: "Secuencias",
+                description: "Patrones armonicos, circulo de quintas",
+                images: ["unidad09_02_u9_subdominantes.png", "unidad09_03_u9_realizacion_secuencia.png", "unidad09_04_u9_acordes_enlace.png", "unidad09_05_u9_acordes_bordadura.png"],
+                theory: `
+                    <h3>Secuencias armonicas</h3>
+                    <p>Una secuencia es un patron armonico que se <strong>repite a diferentes alturas</strong>.</p>
+
+                    <h3>Circulo de quintas</h3>
+                    <img src="imagenes/unidad09_02_u9_subdominantes.png" alt="Subdominantes">
+                    <p>Progresion descendente por quintas: I - IV - VII - III - VI - II - V - I</p>
+
+                    <h3>Realizacion de secuencias</h3>
+                    <img src="imagenes/unidad09_03_u9_realizacion_secuencia.png" alt="Realizacion">
+
+                    <h3>Acordes de enlace</h3>
+                    <img src="imagenes/unidad09_04_u9_acordes_enlace.png" alt="Acordes enlace">
+
+                    <h3>Acordes de bordadura</h3>
+                    <img src="imagenes/unidad09_05_u9_acordes_bordadura.png" alt="Bordadura">
+
+                    <div class="note">El <strong>Canon de Pachelbel</strong> (I-V-VI-III-IV-I-IV-V) es una de las progresiones mas famosas de la musica.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad09/pista13.mp3", hint: "Tipo de secuencia", answer: "Circulo de quintas", song: "I-IV-VII-III-VI-II-V-I" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad09/pista12.mp3", hint: "Patron", answer: "Secuencia desc. por 2as", song: "I-VII-VI-V..." },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad06/pista04.mp3", hint: "Progresion", answer: "Romanesca", song: "I-V-VI-III" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad09/pista10.mp3", hint: "Tipo de secuencia", answer: "Secuencia 5-6", song: "Alternancia" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad09/pista01.mp3", hint: "Patron barroco", answer: "Canon de Pachelbel", song: "I-V-VI-III-IV-I-IV-V" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad09/pista06.mp3", hint: "Progresion pop", answer: "I-V-VI-IV", song: "Axis progression" }
+                ]
+            },
+            {
+                id: 10,
+                title: "Septima de dominante",
+                shortTitle: "V7",
+                description: "Acorde de septima de dominante",
+                images: [],
+                theory: `
+                    <h3>El acorde V7</h3>
+                    <p>El acorde de <strong>septima de dominante</strong> anade una septima menor a la triada mayor del V grado, creando mayor tension hacia la tonica.</p>
+
+                    <h3>Estructura</h3>
+                    <ul>
+                        <li>Triada mayor + 7a menor</li>
+                        <li>Contiene el <strong>tritono</strong> entre la 3a y la 7a</li>
+                        <li>La 7a es disonancia y debe <strong>resolver descendiendo</strong></li>
+                    </ul>
+
+                    <h3>Resolucion</h3>
+                    <ul>
+                        <li>La <strong>sensible</strong> (3a del V7) sube a la tonica</li>
+                        <li>La <strong>septima</strong> desciende por grado conjunto</li>
+                        <li>Normalmente se omite la quinta para evitar duplicaciones</li>
+                    </ul>
+
+                    <div class="note">El V7 es el acorde mas <strong>tensionante</strong> de la tonalidad y su resolucion a I es la base de toda la armonia funcional.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/moderna/donna.mp3", hint: "Dominante con septima", answer: "V7 - I", song: "Donna (Ritchie Valens)" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad11/pista06.mp3", hint: "Resolucion V7", answer: "V7 - I (7a desciende)", song: "Resolucion estandar" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad01/pista04.mp3", hint: "Comparacion", answer: "V vs V7", song: "Con y sin septima" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad04/pista07.mp3", hint: "V7 a VI", answer: "V7 - VI (rota)", song: "Engano con septima" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista32.mp3", hint: "Tension dominante", answer: "II - V7 - I", song: "Turnaround jazz" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad11/pista21.mp3", hint: "Preparacion", answer: "IV - V7 - I", song: "S - D7 - T" }
+                ]
+            },
+            {
+                id: 11,
+                title: "Dominantes secundarias",
+                shortTitle: "Dom. secundarias",
+                description: "V/V, V/IV, dominantes aplicadas",
+                images: ["unidad11_01_u11_dominantes_triadas.png"],
+                theory: `
+                    <h3>Dominantes secundarias</h3>
+                    <p>Una dominante secundaria es un acorde de dominante que resuelve a un grado <strong>diferente de la tonica</strong>.</p>
+                    <img src="imagenes/unidad11_01_u11_dominantes_triadas.png" alt="Dominantes secundarias">
+
+                    <h3>Notacion</h3>
+                    <ul>
+                        <li><strong>V/V:</strong> Dominante de la dominante (resuelve a V)</li>
+                        <li><strong>V/IV:</strong> Dominante del IV (resuelve a IV)</li>
+                        <li><strong>V/II:</strong> Dominante del II (resuelve a II)</li>
+                        <li><strong>V/VI:</strong> Dominante del VI (resuelve a VI)</li>
+                    </ul>
+
+                    <h3>Construccion</h3>
+                    <p>Se construye una triada mayor o acorde de septima de dominante sobre el V grado del acorde objetivo.</p>
+
+                    <div class="note">Las dominantes secundarias crean <strong>tonicizaciones temporales</strong>, dando sensacion de cambio de tonalidad momentaneo sin modular realmente.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad11/pista01.mp3", hint: "Dominante de...", answer: "V/V - V - I", song: "Dominante de la dominante" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad11/pista26.mp3", hint: "Dominante secundaria", answer: "V7/IV - IV", song: "Dominante del IV" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad08/pista11.mp3", hint: "Dominante secundaria", answer: "V7/II - II - V - I", song: "Dominante del II" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad11/pista15.mp3", hint: "Dominante secundaria", answer: "V7/VI - VI", song: "Dominante del VI" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad11/pista02.mp3", hint: "Dominante secundaria", answer: "V7/III - III", song: "Dominante del III" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad02/pista01.mp3", hint: "II con dominante", answer: "V7/II - II - V7 - I", song: "Cadena de dominantes" }
+                ]
+            },
+            {
+                id: 19,
+                title: "Acordes de sexta aumentada",
+                shortTitle: "6a aumentada",
+                description: "Italiana, Francesa, Alemana",
+                images: ["unidad19_01_u19_sextas_alemana_suiza.png", "unidad19_02_u19_sexta_francesa_enlace.png"],
+                theory: `
+                    <h3>Los acordes de sexta aumentada</h3>
+                    <p>Acordes cromaticos con un intervalo de <strong>sexta aumentada</strong> que resuelve abriendo a la octava (dominante).</p>
+
+                    <h3>Tres tipos</h3>
+                    <img src="imagenes/unidad19_01_u19_sextas_alemana_suiza.png" alt="Alemana y Suiza">
+                    <ul>
+                        <li><strong>Italiana (It+6):</strong> Solo tres notas (b6 - 1 - #4)</li>
+                        <li><strong>Francesa (Fr+6):</strong> Con segunda aumentada (b6 - 1 - 2 - #4)</li>
+                        <li><strong>Alemana (Ger+6):</strong> Con quinta justa (b6 - 1 - b3 - #4)</li>
+                    </ul>
+
+                    <h3>Resolucion</h3>
+                    <img src="imagenes/unidad19_02_u19_sexta_francesa_enlace.png" alt="Resolucion">
+                    <p>Todos resuelven a <strong>V</strong> o a <strong>I 6/4 cadencial</strong>.</p>
+
+                    <div class="note">La sexta aumentada (ej: Lab-Fa#) suena igual que una 7a menor (enarmonia), pero su <strong>funcion</strong> es diferente: expande hacia la dominante.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U10/pista26.mp3", hint: "Tipo de 6a aumentada", answer: "6a Italiana (It+6)", song: "Dos notas + bajo" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U10/pista35.mp3", hint: "Tipo de 6a aumentada", answer: "6a Francesa (Fr+6)", song: "Con 2a aumentada" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U10/pista01.mp3", hint: "Tipo de 6a aumentada", answer: "6a Alemana (Ger+6)", song: "Con 5a justa" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U10/pista28.mp3", hint: "Resolucion", answer: "+6 - V", song: "Resolucion a dominante" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U10/pista31.mp3", hint: "Resolucion alternativa", answer: "+6 - I6/4 - V", song: "Via cuarta y sexta" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U10/pista38.mp3", hint: "Contexto", answer: "IV - +6 - V - I", song: "Preparacion cromatica" }
+                ]
+            },
+            {
+                id: 20,
+                title: "Introduccion a la modulacion",
+                shortTitle: "Modulacion",
+                description: "Cambio de tonalidad, pivote",
+                images: ["unidad20_01_piramide_modulacion.png"],
+                theory: `
+                    <h3>Que es modular</h3>
+                    <p><strong>Modular</strong> es cambiar de tonalidad de forma establecida, confirmando la nueva tonica con una cadencia.</p>
+                    <img src="imagenes/unidad20_01_piramide_modulacion.png" alt="Modulacion">
+
+                    <h3>Tonalidades cercanas</h3>
+                    <p>Las modulaciones mas naturales son a tonalidades que comparten muchas notas:</p>
+                    <ul>
+                        <li><strong>Dominante (V):</strong> Una alteracion mas</li>
+                        <li><strong>Subdominante (IV):</strong> Una alteracion menos</li>
+                        <li><strong>Relativo menor/mayor:</strong> Misma armadura</li>
+                    </ul>
+
+                    <h3>Tecnicas de modulacion</h3>
+                    <ul>
+                        <li><strong>Acorde pivote:</strong> Un acorde pertenece a ambas tonalidades</li>
+                        <li><strong>Modulacion directa:</strong> Cambio brusco sin preparacion</li>
+                        <li><strong>Modulacion cromatica:</strong> Mediante alteraciones cromaticas</li>
+                        <li><strong>Modulacion enarmonica:</strong> Usando equivalencias enarmonicas</li>
+                    </ul>
+
+                    <div class="note">El <strong>acorde pivote</strong> es el metodo mas suave de modular: un acorde se reinterpreta como perteneciente a la nueva tonalidad.</div>
+                `,
+                exercises: [
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad11/pista01.mp3", hint: "Tipo de modulacion", answer: "Modulacion a V", song: "I - V/V - V:I" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U09/pista18.mp3", hint: "Tonalidad destino", answer: "Modulacion a IV", song: "Hacia subdominante" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia1/unidad12/pista13.mp3", hint: "Tecnica", answer: "Acorde pivote", song: "VI = II de V" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U13/pista02.mp3", hint: "Modulacion", answer: "A relativo menor", song: "Mayor - menor" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/U09/pista16.mp3", hint: "Modulacion directa", answer: "Sin pivote", song: "Cambio brusco" },
+                    { url: "https://www.bustena.com/wp-content/mp3/armonia2/moderna/raksin.mp3", hint: "Modulaciones multiples", answer: "Modulacion en cadena", song: "Laura (D. Raksin)" }
+                ]
+            }
+        ];
+
+        // ============================================
+        // STATE
+        // ============================================
+        let currentUnit = null;
+        let completedExercises = new Set();
+        let randomMode = false;
+        let currentAudio = null;
+        let theoryExpanded = false;
+
+        // ============================================
+        // INIT
+        // ============================================
+        function init() {
+            renderUnitsNav();
+            loadProgress();
+            updateProgress();
+        }
+
+        function renderUnitsNav() {
+            const nav = document.getElementById('units-nav');
+            nav.innerHTML = UNITS.map(unit => `
+                <button onclick="selectUnit(${unit.id})"
+                        id="unit-btn-${unit.id}"
+                        class="unit-btn w-full text-left px-3 py-2.5 rounded-lg border border-slate-800 hover:border-slate-700 hover:bg-slate-800/50 text-sm transition flex items-center gap-3 group">
+                    <span class="w-7 h-7 rounded-lg bg-slate-800 group-hover:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 transition">
+                        ${unit.id}
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-slate-300 truncate">${unit.shortTitle}</p>
+                        <p class="text-[10px] text-slate-500 truncate">${unit.exercises.length} ejercicios</p>
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        function selectUnit(unitId) {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+
+            currentUnit = UNITS.find(u => u.id === unitId);
+            theoryExpanded = false;
+            document.getElementById('theory-content').classList.remove('expanded');
+            document.getElementById('theory-chevron').style.transform = '';
+
+            document.querySelectorAll('.unit-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`unit-btn-${unitId}`).classList.add('active');
+
+            document.getElementById('current-unit-title').textContent = `Unidad ${unitId}: ${currentUnit.title}`;
+            document.getElementById('current-unit-desc').textContent = currentUnit.description;
+
+            // Render theory
+            document.getElementById('theory-body').innerHTML = currentUnit.theory;
+
+            // Render exercises
+            renderExercises();
+
+            document.getElementById('empty-state').classList.add('hidden');
+            document.getElementById('content-container').classList.remove('hidden');
+
+            updateUnitProgress();
+        }
+
+        function toggleTheory() {
+            theoryExpanded = !theoryExpanded;
+            const content = document.getElementById('theory-content');
+            const chevron = document.getElementById('theory-chevron');
+
+            if (theoryExpanded) {
+                content.classList.add('expanded');
+                chevron.style.transform = 'rotate(180deg)';
+            } else {
+                content.classList.remove('expanded');
+                chevron.style.transform = '';
+            }
+        }
+
+        function renderExercises() {
+            const grid = document.getElementById('exercises-grid');
+            const exercises = randomMode ? shuffleArray([...currentUnit.exercises]) : currentUnit.exercises;
+
+            grid.innerHTML = exercises.map((ex, idx) => {
+                const exId = `${currentUnit.id}-${idx}`;
+                const isCompleted = completedExercises.has(exId);
+
+                return `
+                <div class="audio-card bg-slate-900 border border-slate-800 rounded-xl overflow-hidden ${isCompleted ? 'border-l-2 border-l-green-500' : ''}" id="card-${exId}">
+                    <div class="px-4 py-3 border-b border-slate-800 flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-500">Ejercicio ${idx + 1}</span>
+                        ${isCompleted ? '<i class="fa-solid fa-check-circle text-green-500 text-sm"></i>' : ''}
+                    </div>
+                    <div class="p-4">
+                        <div class="flex items-center gap-3 mb-4">
+                            <button onclick="playAudio('${ex.url}', '${exId}')"
+                                    id="play-btn-${exId}"
+                                    class="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-500 flex items-center justify-center transition shadow-lg shadow-blue-900/30">
+                                <i class="fa-solid fa-play text-white ml-1"></i>
+                            </button>
+                            <div class="flex-1">
+                                <p class="text-sm text-slate-300 font-medium">${ex.hint}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Escucha y adivina</p>
+                            </div>
+                        </div>
+                        <audio id="audio-${exId}" src="${ex.url}" preload="none" onended="onAudioEnded('${exId}')"></audio>
+                        <div class="h-1 bg-slate-800 rounded-full overflow-hidden mb-4">
+                            <div id="progress-${exId}" class="h-full bg-blue-500 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                        <button onclick="revealAnswer('${exId}')" id="reveal-btn-${exId}"
+                                class="w-full py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm text-slate-300 font-medium transition border border-slate-700">
+                            <i class="fa-solid fa-eye mr-2"></i> Mostrar respuesta
+                        </button>
+                        <div id="answer-${exId}" class="answer-box bg-slate-800/50 rounded-lg mt-3 border border-slate-700">
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa-solid fa-music text-green-400"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-white text-lg">${ex.answer}</p>
+                                    <p class="text-sm text-slate-400 mt-1">${ex.song}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            // Audio progress listeners
+            exercises.forEach((_, idx) => {
+                const exId = `${currentUnit.id}-${idx}`;
+                const audio = document.getElementById(`audio-${exId}`);
+                if (audio) {
+                    audio.ontimeupdate = () => {
+                        const pct = (audio.currentTime / audio.duration) * 100;
+                        document.getElementById(`progress-${exId}`).style.width = `${pct}%`;
+                    };
+                }
+            });
+        }
+
+        function playAudio(url, exId) {
+            const audio = document.getElementById(`audio-${exId}`);
+            const btn = document.getElementById(`play-btn-${exId}`);
+            const card = document.getElementById(`card-${exId}`);
+
+            if (currentAudio && currentAudio !== audio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                document.querySelectorAll('.audio-card').forEach(c => c.classList.remove('playing'));
+                document.querySelectorAll('[id^="play-btn-"]').forEach(b => {
+                    b.innerHTML = '<i class="fa-solid fa-play text-white ml-1"></i>';
+                    b.classList.remove('playing-indicator');
+                });
+            }
+
+            if (audio.paused) {
+                audio.play();
+                btn.innerHTML = '<i class="fa-solid fa-pause text-white"></i>';
+                btn.classList.add('playing-indicator');
+                card.classList.add('playing');
+                currentAudio = audio;
+            } else {
+                audio.pause();
+                btn.innerHTML = '<i class="fa-solid fa-play text-white ml-1"></i>';
+                btn.classList.remove('playing-indicator');
+                card.classList.remove('playing');
+            }
+        }
+
+        function onAudioEnded(exId) {
+            const btn = document.getElementById(`play-btn-${exId}`);
+            const card = document.getElementById(`card-${exId}`);
+            btn.innerHTML = '<i class="fa-solid fa-play text-white ml-1"></i>';
+            btn.classList.remove('playing-indicator');
+            card.classList.remove('playing');
+            document.getElementById(`progress-${exId}`).style.width = '0%';
+        }
+
+        function revealAnswer(exId) {
+            const answerBox = document.getElementById(`answer-${exId}`);
+            const revealBtn = document.getElementById(`reveal-btn-${exId}`);
+
+            if (answerBox.classList.contains('revealed')) {
+                answerBox.classList.remove('revealed');
+                revealBtn.innerHTML = '<i class="fa-solid fa-eye mr-2"></i> Mostrar respuesta';
+            } else {
+                answerBox.classList.add('revealed');
+                revealBtn.innerHTML = '<i class="fa-solid fa-eye-slash mr-2"></i> Ocultar respuesta';
+
+                if (!completedExercises.has(exId)) {
+                    completedExercises.add(exId);
+                    document.getElementById(`card-${exId}`).classList.add('border-l-2', 'border-l-green-500');
+                    saveProgress();
+                    updateProgress();
+                    updateUnitProgress();
+                }
+            }
+        }
+
+        function updateProgress() {
+            const total = UNITS.reduce((acc, u) => acc + u.exercises.length, 0);
+            const done = completedExercises.size;
+            const pct = Math.round((done / total) * 100);
+
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+            document.getElementById('progress-text').textContent = `${pct}%`;
+        }
+
+        function updateUnitProgress() {
+            if (!currentUnit) return;
+            const total = currentUnit.exercises.length;
+            const done = currentUnit.exercises.filter((_, idx) =>
+                completedExercises.has(`${currentUnit.id}-${idx}`)
+            ).length;
+            document.getElementById('unit-done').textContent = done;
+            document.getElementById('unit-total').textContent = total;
+        }
+
+        function saveProgress() {
+            localStorage.setItem('armonia-progress', JSON.stringify([...completedExercises]));
+        }
+
+        function loadProgress() {
+            const saved = localStorage.getItem('armonia-progress');
+            if (saved) completedExercises = new Set(JSON.parse(saved));
+        }
+
+        function toggleRandomMode() {
+            randomMode = !randomMode;
+            const btn = document.getElementById('random-btn');
+            btn.classList.toggle('bg-blue-600', randomMode);
+            btn.classList.toggle('text-white', randomMode);
+            btn.classList.toggle('text-slate-400', !randomMode);
+            if (currentUnit) renderExercises();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // MOBILE SIDEBAR
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('open');
+        }
+
+        // Close sidebar when selecting unit on mobile
+        const originalSelectUnit = selectUnit;
+        selectUnit = function(unitId) {
+            originalSelectUnit(unitId);
+            if (window.innerWidth < 768) {
+                toggleSidebar();
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>
